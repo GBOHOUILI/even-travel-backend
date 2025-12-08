@@ -5,6 +5,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
+import destinationRoutes from './routes/destinationRoutes.js';
 
 const app = express();
 
@@ -29,7 +30,12 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Routes
+
+// Authentication
 app.use('/api/v1/auth', authRoutes);
+
+//Routes pour la destination
+app.use('/api/v1/destinations', destinationRoutes);
 
 // Route 404
 app.all(/.*/, (req, res) => {
