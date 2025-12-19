@@ -1,0 +1,25 @@
+import express from "express";
+import {
+  createEvent,
+  getAllEvents,
+  getEvent,
+  updateEvent,
+  deleteEvent,
+} from "../controllers/eventController.js";
+import { protect } from "../middlewares/protect.js";
+import upload from "../middlewares/upload.js";
+
+const router = express.Router();
+
+// Routes publiques
+router.get("/", getAllEvents);
+router.get("/:id", getEvent);
+
+// Routes admin (protégées)
+router.use(protect);
+
+router.post("/", upload.array("images", 6), createEvent);
+router.patch("/:id", upload.array("images", 6), updateEvent);
+router.delete("/:id", deleteEvent);
+
+export default router;

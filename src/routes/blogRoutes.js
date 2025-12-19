@@ -1,0 +1,33 @@
+import express from "express";
+import {
+  createArticle,
+  getAllArticles,
+  getArticle,
+  updateArticle,
+  deleteArticle,
+  createComment,
+  approveComment,
+  deleteComment,
+  getAllCommentsAdmin,
+} from "../controllers/blogController.js";
+import { protect } from "../middlewares/protect.js";
+import upload from "../middlewares/upload.js";
+
+const router = express.Router();
+
+// Routes publiques
+router.get("/", getAllArticles);
+router.get("/:slug", getArticle);
+router.post("/:slug/comments", createComment);
+
+// Routes admin
+router.use(protect);
+
+router.post("/", upload.array("images", 6), createArticle);
+router.patch("/:id", upload.array("images", 6), updateArticle);
+router.delete("/:id", deleteArticle);
+router.patch("/comments/:commentId/approve", approveComment);
+router.delete("/comments/:commentId", deleteComment);
+router.get("/admin/comments", getAllCommentsAdmin);
+
+export default router;

@@ -1,7 +1,9 @@
-// src/controllers/destinationController.js → VERSION FINALE 100% STABLE
-import Destination from '../models/Destination.js';
-import catchAsync from '../utils/catchAsync.js';
-import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.js';
+import Destination from "../models/Destination.js";
+import catchAsync from "../utils/catchAsync.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../config/cloudinary.js";
 
 // CREATE
 export const createDestination = catchAsync(async (req, res) => {
@@ -20,7 +22,7 @@ export const createDestination = catchAsync(async (req, res) => {
 
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
-      const result = await uploadToCloudinary(file, 'even-travel/destinations');
+      const result = await uploadToCloudinary(file, "even-travel/destinations");
       images.push({
         url: result.url,
         public_id: result.public_id,
@@ -35,13 +37,13 @@ export const createDestination = catchAsync(async (req, res) => {
     localisation,
     datesDisponibles: datesDisponibles ? JSON.parse(datesDisponibles) : [],
     images,
-    categorie: categorie || 'voyage',
-    featured: featured === 'true' || featured === true,
+    categorie: categorie || "voyage",
+    featured: featured === "true" || featured === true,
     placesDisponibles: Number(placesDisponibles) || 20,
   });
 
   res.status(201).json({
-    status: 'success',
+    status: "success",
     data: { destination },
   });
 });
@@ -55,13 +57,13 @@ export const getAllDestinations = catchAsync(async (req, res) => {
   if (prixMax) query.prix = { $lte: Number(prixMax) };
   if (categorie) query.categorie = categorie;
   if (localisation)
-    query.localisation = { $regex: localisation, $options: 'i' };
-  if (featured === 'true') query.featured = true;
+    query.localisation = { $regex: localisation, $options: "i" };
+  if (featured === "true") query.featured = true;
 
   const destinations = await Destination.find(query).sort({ createdAt: -1 });
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     results: destinations.length,
     data: { destinations },
   });
@@ -72,12 +74,12 @@ export const getDestination = catchAsync(async (req, res) => {
   const destination = await Destination.findById(req.params.id);
   if (!destination) {
     return res.status(404).json({
-      status: 'fail',
-      message: 'Destination non trouvée',
+      status: "fail",
+      message: "Destination non trouvée",
     });
   }
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: { destination },
   });
 });
@@ -100,7 +102,10 @@ export const updateDestination = catchAsync(async (req, res) => {
     const images = [];
     for (const file of req.files) {
       try {
-        const result = await uploadToCloudinary(file, 'even-travel/destinations');
+        const result = await uploadToCloudinary(
+          file,
+          "even-travel/destinations",
+        );
         images.push({
           url: result.url,
           public_id: result.public_id,
@@ -108,7 +113,7 @@ export const updateDestination = catchAsync(async (req, res) => {
         // Petit délai pour ne pas surcharger Cloudinary
         await new Promise((resolve) => setTimeout(resolve, 800));
       } catch (err) {
-        console.error('Une image a échoué lors de l’update →', err.message);
+        console.error("Une image a échoué lors de l’update →", err.message);
         // On continue même si une image plante
       }
     }
@@ -124,18 +129,18 @@ export const updateDestination = catchAsync(async (req, res) => {
   const destination = await Destination.findByIdAndUpdate(
     req.params.id,
     updates,
-    { new: true, runValidators: true }
+    { new: true, runValidators: true },
   );
 
   if (!destination) {
     return res.status(404).json({
-      status: 'fail',
-      message: 'Destination non trouvée',
+      status: "fail",
+      message: "Destination non trouvée",
     });
   }
 
   res.status(200).json({
-    status: 'success',
+    status: "success",
     data: { destination },
   });
 });
@@ -145,8 +150,8 @@ export const deleteDestination = catchAsync(async (req, res) => {
   const destination = await Destination.findById(req.params.id);
   if (!destination) {
     return res.status(404).json({
-      status: 'fail',
-      message: 'Destination non trouvée',
+      status: "fail",
+      message: "Destination non trouvée",
     });
   }
 
@@ -160,7 +165,7 @@ export const deleteDestination = catchAsync(async (req, res) => {
   await destination.deleteOne();
 
   res.status(204).json({
-    status: 'success',
+    status: "success",
     data: null,
   });
 });
