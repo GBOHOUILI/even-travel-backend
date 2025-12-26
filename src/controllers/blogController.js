@@ -10,6 +10,8 @@ import {
 export const createArticle = catchAsync(async (req, res) => {
   const { titre, contenu, auteur, published } = req.body;
 
+  console.log('Published reçu:', published, 'Type:', typeof published); // Pour debug
+
   const images = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
@@ -21,12 +23,18 @@ export const createArticle = catchAsync(async (req, res) => {
     }
   }
 
+  // Conversion robuste
+  let isPublished = false;
+  if (published === true || published === "true") {
+    isPublished = true;
+  }
+
   const article = await Article.create({
     titre,
     contenu,
     auteur,
     images,
-    published: published === "true",
+    published: isPublished,  // Utilisez la variable convertie
   });
 
   res.status(201).json({
@@ -39,6 +47,19 @@ export const createArticle = catchAsync(async (req, res) => {
 export const getAllArticles = catchAsync(async (req, res) => {
   const articles = await Article.find({ published: true }).sort({
     publishedAt: -1,
+  });
+
+  res.status(200).json({
+    status: "success",
+    results: articles.length,
+    data: { articles },
+  });
+});
+
+// ADMIN: GET ALL ARTICLES (inclut brouillons)
+export const getAllArticlesAdmin = catchAsync(async (req, res) => {
+  const articles = await Article.find().sort({
+    createdAt: -1
   });
 
   res.status(200).json({

@@ -9,6 +9,7 @@ import {
   approveComment,
   deleteComment,
   getAllCommentsAdmin,
+  getAllArticlesAdmin,
 } from "../controllers/blogController.js";
 import { protect } from "../middlewares/protect.js";
 import upload from "../middlewares/upload.js";
@@ -23,6 +24,7 @@ router.post("/:slug/comments", createComment);
 // Routes admin
 router.use(protect);
 
+router.get("/admin/articles", getAllArticlesAdmin);
 router.post("/", upload.array("images", 6), createArticle);
 router.patch("/:id", upload.array("images", 6), updateArticle);
 router.delete("/:id", deleteArticle);
