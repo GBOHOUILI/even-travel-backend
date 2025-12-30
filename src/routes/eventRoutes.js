@@ -22,4 +22,7 @@ router.post("/", upload.array("images", 6), createEvent);
 router.patch("/:id", upload.array("images", 6), updateEvent);
 router.delete("/:id", deleteEvent);
 
+// Route spéciale pour mettre à jour les places
+router.patch("/:id/places", updatePlaces);
+
 export default router;

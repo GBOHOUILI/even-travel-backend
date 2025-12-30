@@ -12,6 +12,10 @@ const eventSchema = mongoose.Schema(
       type: Date,
       required: [true, "La date est obligatoire"],
     },
+    dateFin: {
+      type: Date,
+      required: false,
+    },
     lieu: {
       type: String,
       required: [true, "Le lieu est obligatoire"],
@@ -19,6 +23,10 @@ const eventSchema = mongoose.Schema(
     description: {
       type: String,
       required: [true, "La description est obligatoire"],
+    },
+    descriptionLongue: {
+      type: String,
+      default: "",
     },
     prix: {
       type: Number,
@@ -32,6 +40,29 @@ const eventSchema = mongoose.Schema(
       type: Number,
       required: true,
     },
+    duree: {
+      type: Number,
+      required: false,
+      default: 1,
+      min: 1,
+    },
+    tailleGroupeMin: {
+      type: Number,
+      default: 1,
+    },
+    tailleGroupeMax: {
+      type: Number,
+      default: 20,
+    },
+    difficulte: {
+      type: String,
+      enum: ["Très facile", "Facile", "Modérée", "Difficile", "Très difficile"],
+      default: "Modérée",
+    },
+    langues: {
+      type: [String],
+      default: ["Français"],
+    },
     images: [
       {
         url: { type: String, required: true },
@@ -40,22 +71,81 @@ const eventSchema = mongoose.Schema(
     ],
     categorie: {
       type: String,
-      enum: ["concert", "excursion", "formation", "soiree", "culture", "autre"],
+      enum: ["concert", "excursion", "formation", "soiree", "culture", "festival", "sport", "autre"],
       default: "autre",
     },
     featured: {
       type: Boolean,
       default: false,
     },
+    // Pour la page de détail
+    servicesInclus: {
+      type: [String],
+      default: [],
+    },
+    servicesNonInclus: {
+      type: [String],
+      default: [],
+    },
+    informationsPratiques: {
+      type: String,
+      default: "",
+    },
+    itineraire: [
+      {
+        jour: Number,
+        titre: String,
+        description: String,
+        activites: [String],
+      },
+    ],
+    momentsForts: {
+      type: [String],
+      default: [],
+    },
+    recommandations: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true },
 );
 
 // Initialiser placesRestantes = placesTotales à la création
-eventSchema.pre("save", function () {
+eventSchema.pre("save", function (next) {
   if (this.isNew) {
     this.placesRestantes = this.placesTotales;
+    
+    // Si dateFin n'est pas fournie, la définir automatiquement
+    if (!this.dateFin && this.duree > 1) {
+      const dateFin = new Date(this.date);
+      dateFin.setDate(dateFin.getDate() + this.duree - 1);
+      this.dateFin = dateFin;
+    } else if (!this.dateFin) {
+      this.dateFin = this.date;
+    }
+    
+    // Calculer la durée si dateFin est fournie
+    if (this.dateFin && !this.duree) {
+      const diffTime = Math.abs(new Date(this.dateFin) - new Date(this.date));
+      this.duree = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
   }
+  next();
+});
+
+// Middleware pour calculer la durée avant la mise à jour
+eventSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  
+  if (update.dateFin && update.date) {
+    const dateFin = new Date(update.dateFin);
+    const date = new Date(update.date);
+    const diffTime = Math.abs(dateFin - date);
+    update.duree = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }
+  
+  next();
 });
 
 export default mongoose.model("Event", eventSchema);
