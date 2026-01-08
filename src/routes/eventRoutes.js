@@ -5,6 +5,7 @@ import {
   getEvent,
   updateEvent,
   deleteEvent,
+  updatePlaces,
 } from "../controllers/eventController.js";
 import { protect } from "../middlewares/protect.js";
 import upload from "../middlewares/upload.js";

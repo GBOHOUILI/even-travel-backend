@@ -5,17 +5,59 @@ import {
   deleteFromCloudinary,
 } from "../config/cloudinary.js";
 
+// Fonction utilitaire pour parser les données
+const parseData = (data) => {
+  try {
+    // Si c'est déjà un objet/tableau, on le retourne tel quel
+    if (typeof data === "object" && data !== null) {
+      return data;
+    }
+    // Si c'est une chaîne, on essaye de la parser
+    if (typeof data === "string" && data.trim() !== "") {
+      return JSON.parse(data);
+    }
+    // Pour les autres cas (undefined, null, empty string)
+    return data;
+  } catch (error) {
+    console.error("Erreur parsing:", error.message, "Data:", data);
+    // En cas d'erreur, retourner un tableau vide pour les arrays
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return data;
+  }
+};
+
 // CREATE
 export const createDestination = catchAsync(async (req, res) => {
   const {
     titre,
     description,
+    descriptionLongue,
     prix,
     localisation,
+    pays,
+    region,
     datesDisponibles,
     categorie,
     featured,
     placesDisponibles,
+    // Nouveaux champs
+    climat,
+    temperatureMin,
+    temperatureMax,
+    devise,
+    langues,
+    aeroport,
+    fuseauHoraire,
+    meilleurePeriode,
+    budgetJournalier,
+    sitesVisiter,
+    experiencesCulturelles,
+    gastronomie,
+    informationsPratiques,
+    metaDescription,
+    motsCles,
   } = req.body;
 
   const images = [];
@@ -30,17 +72,40 @@ export const createDestination = catchAsync(async (req, res) => {
     }
   }
 
-  const destination = await Destination.create({
+  // ✅ CORRECTION : Utiliser parseData au lieu de JSON.parse direct
+  const destinationData = {
     titre,
     description,
-    prix: Number(prix),
+    descriptionLongue: descriptionLongue || description,
+    prix: Number(prix) || 0,
     localisation,
-    datesDisponibles: datesDisponibles ? JSON.parse(datesDisponibles) : [],
+    pays: pays || "Bénin",
+    region: region || "",
+    datesDisponibles: parseData(datesDisponibles) || [], // ✅ CORRIGÉ
     images,
-    categorie: categorie || "voyage",
+    categorie: categorie || "culture",
     featured: featured === "true" || featured === true,
     placesDisponibles: Number(placesDisponibles) || 20,
-  });
+    // Nouveaux champs
+    climat: climat || "Tropical",
+    temperatureMin: Number(temperatureMin) || 25,
+    temperatureMax: Number(temperatureMax) || 32,
+    devise: devise || "Franc CFA (XOF)",
+    langues: parseData(langues) || ["Français"], // ✅ CORRIGÉ
+    aeroport: aeroport || "",
+    fuseauHoraire: fuseauHoraire || "GMT+1",
+    meilleurePeriode: meilleurePeriode || "Novembre - Mars",
+    budgetJournalier: budgetJournalier || "50-100€",
+    sitesVisiter: parseData(sitesVisiter) || [], // ✅ CORRIGÉ
+    experiencesCulturelles: experiencesCulturelles || "",
+    gastronomie: parseData(gastronomie) || [], // ✅ CORRIGÉ
+    informationsPratiques: informationsPratiques || "",
+    metaDescription:
+      metaDescription || (description ? description.substring(0, 160) : ""),
+    motsCles: parseData(motsCles) || [], // ✅ CORRIGÉ
+  };
+
+  const destination = await Destination.create(destinationData);
 
   res.status(201).json({
     status: "success",
@@ -84,13 +149,12 @@ export const getDestination = catchAsync(async (req, res) => {
   });
 });
 
-// UPDATE – CORRIGÉE À 100% (plus jamais de timeout ni ArrayBuffer)
+// UPDATE
 export const updateDestination = catchAsync(async (req, res) => {
   const updates = { ...req.body };
 
   // Gestion des nouvelles images
   if (req.files && req.files.length > 0) {
-    // 1. Récupérer l'ancienne destination pour supprimer les anciennes images
     const oldDestination = await Destination.findById(req.params.id);
     if (oldDestination && oldDestination.images.length > 0) {
       for (const img of oldDestination.images) {
@@ -98,7 +162,6 @@ export const updateDestination = catchAsync(async (req, res) => {
       }
     }
 
-    // 2. Uploader les nouvelles images UNE PAR UNE (sécurisé)
     const images = [];
     for (const file of req.files) {
       try {
@@ -110,19 +173,41 @@ export const updateDestination = catchAsync(async (req, res) => {
           url: result.url,
           public_id: result.public_id,
         });
-        // Petit délai pour ne pas surcharger Cloudinary
         await new Promise((resolve) => setTimeout(resolve, 800));
       } catch (err) {
-        console.error("Une image a échoué lors de l’update →", err.message);
-        // On continue même si une image plante
+        console.error("Erreur upload image:", err.message);
       }
     }
     updates.images = images;
   }
 
-  // Gestion des dates
-  if (updates.datesDisponibles) {
-    updates.datesDisponibles = JSON.parse(updates.datesDisponibles);
+  // ✅ CORRECTION : Utiliser parseData pour tous les champs
+  const arrayFields = [
+    "datesDisponibles",
+    "langues",
+    "sitesVisiter",
+    "gastronomie",
+    "motsCles",
+  ];
+
+  arrayFields.forEach((field) => {
+    if (updates[field] !== undefined) {
+      updates[field] = parseData(updates[field]);
+    }
+  });
+
+  // Conversion des nombres
+  if (updates.prix) updates.prix = Number(updates.prix);
+  if (updates.placesDisponibles)
+    updates.placesDisponibles = Number(updates.placesDisponibles);
+  if (updates.temperatureMin)
+    updates.temperatureMin = Number(updates.temperatureMin);
+  if (updates.temperatureMax)
+    updates.temperatureMax = Number(updates.temperatureMax);
+
+  // Conversion boolean
+  if (updates.featured !== undefined) {
+    updates.featured = updates.featured === "true" || updates.featured === true;
   }
 
   // Mise à jour
