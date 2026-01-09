@@ -1,15 +1,30 @@
 import express from "express";
 import { protect } from "../middlewares/protect.js";
+import upload from "../middlewares/upload.js";
 import {
-  getDashboardStats,
-  getAllReservationsAdmin,
-} from "../controllers/adminController.js";
+  createArticle,
+  updateArticle,
+  deleteArticle,
+  approveComment,
+  deleteComment,
+  getAllCommentsAdmin,
+  getAllArticlesAdmin,
+} from "../controllers/blogController.js";
 
 const router = express.Router();
 
-router.use(protect); // Tout protégé
+// Toutes les routes admin sont protégées
+router.use(protect);
 
-router.get("/stats", getDashboardStats);
-router.get("/reservations", getAllReservationsAdmin);
+// Routes admin pour les articles
+router.get("/articles", getAllArticlesAdmin);
+router.post("/articles", upload.array("images", 6), createArticle);
+router.patch("/articles/:id", upload.array("images", 6), updateArticle);
+router.delete("/articles/:id", deleteArticle);
+
+// Routes admin pour les commentaires
+router.get("/comments", getAllCommentsAdmin);
+router.patch("/comments/:commentId/approve", approveComment);
+router.delete("/comments/:commentId", deleteComment);
 
 export default router;
