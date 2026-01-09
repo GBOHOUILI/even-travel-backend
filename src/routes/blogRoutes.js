@@ -6,6 +6,7 @@ import {
   updateArticle,
   deleteArticle,
   createComment,
+  getArticleComments, // Ajouter cette importation
   approveComment,
   deleteComment,
   getAllCommentsAdmin,
@@ -19,6 +20,7 @@ const router = express.Router();
 // Routes publiques
 router.get("/", getAllArticles);
 router.get("/:slug", getArticle);
+router.get("/:slug/comments", getArticleComments); // Nouvelle route publique
 router.post("/:slug/comments", createComment);
 
 // Routes admin

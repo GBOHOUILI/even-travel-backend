@@ -10,8 +10,6 @@ import {
 export const createArticle = catchAsync(async (req, res) => {
   const { titre, contenu, auteur, published } = req.body;
 
-  console.log('Published reçu:', published, 'Type:', typeof published); // Pour debug
-
   const images = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
@@ -34,7 +32,7 @@ export const createArticle = catchAsync(async (req, res) => {
     contenu,
     auteur,
     images,
-    published: isPublished,  // Utilisez la variable convertie
+    published: isPublished, // Utilisez la variable convertie
   });
 
   res.status(201).json({
@@ -59,7 +57,7 @@ export const getAllArticles = catchAsync(async (req, res) => {
 // ADMIN: GET ALL ARTICLES (inclut brouillons)
 export const getAllArticlesAdmin = catchAsync(async (req, res) => {
   const articles = await Article.find().sort({
-    createdAt: -1
+    createdAt: -1,
   });
 
   res.status(200).json({
@@ -221,6 +219,31 @@ export const getAllCommentsAdmin = catchAsync(async (req, res) => {
   const comments = await Comment.find()
     .populate("article", "titre slug")
     .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    status: "success",
+    results: comments.length,
+    data: { comments },
+  });
+});
+
+// GET COMMENTS FOR PUBLIC (seulement commentaires approuvés)
+export const getArticleComments = catchAsync(async (req, res) => {
+  const article = await Article.findOne({
+    slug: req.params.slug,
+    published: true,
+  });
+
+  if (!article) {
+    return res
+      .status(404)
+      .json({ status: "fail", message: "Article non trouvé" });
+  }
+
+  const comments = await Comment.find({
+    article: article._id,
+    approved: true,
+  }).sort({ createdAt: -1 });
 
   res.status(200).json({
     status: "success",
