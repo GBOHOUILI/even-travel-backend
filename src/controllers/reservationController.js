@@ -1,110 +1,162 @@
 import Reservation from "../models/Reservation.js";
-import Destination from "../models/Destination.js";
 import Event from "../models/Event.js";
+import Destination from "../models/Destination.js";
 import catchAsync from "../utils/catchAsync.js";
 
-// Créer réservation + générer lien KkiaPay
-export const initierPaiement = catchAsync(async (req, res) => {
-  const { type, itemId, nombrePlaces, tranche, client } = req.body;
+// @desc    Récupérer toutes les réservations (pour admin)
+// @route   GET /api/v1/reservations
+// @access  Private/Admin
+export const getAllReservations = catchAsync(async (req, res) => {
+  const reservations = await Reservation.find()
+    .sort({ createdAt: -1 })
+    .populate("itemId", "nom titre lieu localisation prix")
+    .lean();
 
-  let item;
-  let prixUnitaire;
-
-  if (type === "destination") {
-    item = await Destination.findById(itemId);
-    prixUnitaire = item.prix;
-  } else if (type === "event") {
-    item = await Event.findById(itemId);
-    prixUnitaire = item.prix;
-
-    if (item.placesRestantes < nombrePlaces) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Plus assez de places disponibles",
-      });
-    }
-  }
-
-  if (!item) {
-    return res.status(404).json({ status: "fail", message: "Item non trouvé" });
-  }
-
-  const montantTotal = prixUnitaire * nombrePlaces;
-  const montantAPayer =
-    tranche === "deux" ? Math.ceil(montantTotal / 2) : montantTotal;
-
-  // Créer la réservation en attente
-  const reservation = await Reservation.create({
-    client,
-    type,
-    itemId,
-    nombrePlaces,
-    montantTotal,
-    montantPaye: 0,
-    tranche,
-    statutPaiement: "en_attente",
+  res.status(200).json({
+    status: "success",
+    results: reservations.length,
+    data: {
+      reservations,
+    },
   });
+});
 
-  // Générer le lien de paiement KkiaPay
-  const paymentData = {
-    amount: montantAPayer,
-    phone: client.telephone,
-    email: client.email,
-    name: `${client.prenom} ${client.nom}`,
-    reason: `Réservation ${type} - Even Travel`,
-    data: JSON.stringify({
-      reservation_id: reservation._id.toString(),
-      tranche,
-    }),
-    sandbox: process.env.KKIAPAY_SANDBOX === "true",
-  };
+// @desc    Récupérer une réservation par ID
+// @route   GET /api/v1/reservations/:id
+// @access  Private/Admin
+export const getReservationById = catchAsync(async (req, res) => {
+  const reservation = await Reservation.findById(req.params.id)
+    .populate("itemId", "nom titre lieu localisation prix description")
+    .lean();
+
+  if (!reservation) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Réservation non trouvée",
+    });
+  }
 
   res.status(200).json({
     status: "success",
     data: {
       reservation,
-      payment: paymentData,
-      publicKey: process.env.KKIAPAY_PUBLIC_KEY,
-      message: "Utilise le widget KkiaPay côté frontend avec ces données",
     },
   });
 });
 
-// Webhook KkiaPay (vérification paiement)
-export const webhookKkiaPay = catchAsync(async (req, res) => {
-  const event = req.body;
+// @desc    Mettre à jour le statut d'une réservation
+// @route   PATCH /api/v1/reservations/:id/status
+// @access  Private/Admin
+export const updateReservationStatus = catchAsync(async (req, res) => {
+  const { statutPaiement } = req.body;
 
-  // Vérifier signature (optionnel mais recommandé)
-  // KkiaPay envoie "transaction_id", "status", "amount", etc.
+  const reservation = await Reservation.findById(req.params.id);
 
-  if (event.status === "SUCCESS") {
-    const reservationId = JSON.parse(event.data).reservation_id;
-
-    const reservation = await Reservation.findById(reservationId);
-    if (reservation && reservation.statutPaiement !== "paye") {
-      const montantPaye = Number(event.amount);
-
-      reservation.montantPaye += montantPaye;
-
-      if (reservation.montantPaye >= reservation.montantTotal) {
-        reservation.statutPaiement = "paye";
-      } else {
-        reservation.statutPaiement = "acompte";
-      }
-
-      await reservation.save();
-
-      // Réduire les places pour événement
-      if (reservation.type === "event") {
-        await Event.findByIdAndUpdate(reservation.itemId, {
-          $inc: { placesRestantes: -reservation.nombrePlaces },
-        });
-      }
-
-      // TODO : envoyer email confirmation
-      console.log(`Paiement réussi pour réservation ${reservationId}`);
-    }
+  if (!reservation) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Réservation non trouvée",
+    });
   }
 
-  res.status(200).send("OK");
+  // Mettre à jour le statut
+  reservation.statutPaiement = statutPaiement;
+
+  // Si le statut passe à "paye", mettre à jour les places disponibles pour les événements
+  if (statutPaiement === "paye" && reservation.type === "event") {
+    await Event.findByIdAndUpdate(reservation.itemId, {
+      $inc: { placesRestantes: -reservation.nombrePlaces },
+    });
+  }
+
+  // Si le statut passe à "annule", remettre les places si c'était payé
+  if (
+    statutPaiement === "annule" &&
+    reservation.statutPaiement === "paye" &&
+    reservation.type === "event"
+  ) {
+    await Event.findByIdAndUpdate(reservation.itemId, {
+      $inc: { placesRestantes: reservation.nombrePlaces },
+    });
+  }
+
+  await reservation.save();
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      reservation,
+    },
+  });
+});
+
+// @desc    Supprimer une réservation
+// @route   DELETE /api/v1/reservations/:id
+// @access  Private/Admin
+export const deleteReservation = catchAsync(async (req, res) => {
+  const reservation = await Reservation.findById(req.params.id);
+
+  if (!reservation) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Réservation non trouvée",
+    });
+  }
+
+  // Si la réservation était payée, remettre les places
+  if (reservation.statutPaiement === "paye" && reservation.type === "event") {
+    await Event.findByIdAndUpdate(reservation.itemId, {
+      $inc: { placesRestantes: reservation.nombrePlaces },
+    });
+  }
+
+  await reservation.deleteOne();
+
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
+
+// @desc    Récupérer les statistiques des réservations
+// @route   GET /api/v1/reservations/stats
+// @access  Private/Admin
+export const getReservationStats = catchAsync(async (req, res) => {
+  const stats = await Reservation.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalReservations: { $sum: 1 },
+        totalRevenue: { $sum: "$montantTotal" },
+        totalPaid: { $sum: "$montantPaye" },
+        pendingCount: {
+          $sum: { $cond: [{ $eq: ["$statutPaiement", "en_attente"] }, 1, 0] },
+        },
+        paidCount: {
+          $sum: { $cond: [{ $eq: ["$statutPaiement", "paye"] }, 1, 0] },
+        },
+        depositCount: {
+          $sum: { $cond: [{ $eq: ["$statutPaiement", "acompte"] }, 1, 0] },
+        },
+        cancelledCount: {
+          $sum: { $cond: [{ $eq: ["$statutPaiement", "annule"] }, 1, 0] },
+        },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      stats: stats[0] || {
+        totalReservations: 0,
+        totalRevenue: 0,
+        totalPaid: 0,
+        pendingCount: 0,
+        paidCount: 0,
+        depositCount: 0,
+        cancelledCount: 0,
+      },
+    },
+  });
 });

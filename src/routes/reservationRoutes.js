@@ -1,12 +1,25 @@
 import express from "express";
 import {
-  initierPaiement,
-  webhookKkiaPay,
+  getAllReservations,
+  getReservationById,
+  updateReservationStatus,
+  deleteReservation,
+  getReservationStats,
 } from "../controllers/reservationController.js";
+import { protect, restrictTo } from "../controllers/authController.js";
 
 const router = express.Router();
 
-router.post("/initier", initierPaiement);
-router.post("/webhook/kkiapay", webhookKkiaPay);
+// Protéger toutes les routes
+router.use(protect);
+router.use(restrictTo("admin"));
+
+router.route("/").get(getAllReservations);
+
+router.route("/stats").get(getReservationStats);
+
+router.route("/:id").get(getReservationById).delete(deleteReservation);
+
+router.route("/:id/status").patch(updateReservationStatus);
 
 export default router;
