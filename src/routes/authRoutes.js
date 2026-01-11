@@ -4,6 +4,8 @@ import {
   login,
   logout,
   getMe,
+  updateMe,
+  updatePassword,
 } from "../controllers/authController.js";
 
 import { protect } from "../middlewares/protect.js";
