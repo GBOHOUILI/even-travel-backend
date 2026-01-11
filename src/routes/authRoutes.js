@@ -1,23 +1,30 @@
+// routes/adminAuthRoutes.js
 import express from "express";
 import {
-  getAllReservations,
-  getReservationById,
-  updateReservationStatus,
-  deleteReservation,
-  getReservationStats,
-} from "../controllers/reservationController.js";
+  registerAdmin,
+  login,
+  logout,
+  getMe,
+} from "../controllers/adminAuthController.js";
 
-import { protect } from "../middlewares/protect.js";
+import { protectAdmin } from "../middlewares/adminAuthMiddleware.js";
 
 const router = express.Router();
 
-// Protéger toutes les routes
-router.use(protect);
+/**
+ * AUTH ADMIN
+ */
 
-router.get("/", getAllReservations);
-router.get("/stats", getReservationStats);
-router.get("/:id", getReservationById);
-router.delete("/:id", deleteReservation);
-router.patch("/:id/status", updateReservationStatus);
+// Créer un admin (à protéger plus tard si besoin)
+router.post("/register", registerAdmin);
+
+// Login admin
+router.post("/login", login);
+
+// Logout admin
+router.get("/logout", logout);
+
+// Admin connecté
+router.get("/me", protectAdmin, getMe);
 
 export default router;
