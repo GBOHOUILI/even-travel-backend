@@ -1,19 +1,14 @@
-// routes/adminAuthRoutes.js
 import express from "express";
 import {
   registerAdmin,
   login,
   logout,
   getMe,
-} from "../controllers/adminAuthController.js";
+} from "../controllers/authController.js";
 
-import { protectAdmin } from "../middlewares/adminAuthMiddleware.js";
+import { protect } from "../middlewares/protect.js";
 
 const router = express.Router();
-
-/**
- * AUTH ADMIN
- */
 
 // Créer un admin (à protéger plus tard si besoin)
 router.post("/register", registerAdmin);
@@ -25,6 +20,9 @@ router.post("/login", login);
 router.get("/logout", logout);
 
 // Admin connecté
+router.get("/me", protect, getMe);
 router.get("/me", protectAdmin, getMe);
+router.patch("/update-me", protectAdmin, updateMe);
+router.patch("/update-password", protectAdmin, updatePassword);
 
 export default router;
