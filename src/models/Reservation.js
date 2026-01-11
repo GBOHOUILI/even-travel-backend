@@ -1,4 +1,3 @@
-// backend/routes/reservationRoutes.js
 import express from "express";
 import {
   initierPaiementFlutterwave,
