@@ -1,168 +1,148 @@
+import Payment from "../models/Payment.js";
 import Reservation from "../models/Reservation.js";
 import catchAsync from "../utils/catchAsync.js";
-import axios from "axios";
 
-// Initier paiement Flutterwave
-export const initierPaiementFlutterwave = catchAsync(async (req, res) => {
-  const { client, type, itemId, nombrePlaces, planPaiement, methodePaiement } =
-    req.body;
+// @desc    Récupérer tous les paiements
+// @route   GET /api/v1/payments
+// @access  Private/Admin
+export const getAllPayments = catchAsync(async (req, res) => {
+  const payments = await Payment.find()
+    .sort({ createdAt: -1 })
+    .populate({
+      path: "reservation",
+      populate: {
+        path: "itemId",
+        select: "nom titre lieu localisation prix",
+      },
+    })
+    .lean();
 
-  // Récupérer l'item (événement ou destination)
-  const Item = type === "evenement" ? Event : Destination;
-  const item = await Item.findById(itemId);
+  res.status(200).json({
+    status: "success",
+    results: payments.length,
+    data: {
+      payments,
+    },
+  });
+});
 
-  if (!item) {
+// @desc    Récupérer un paiement par ID
+// @route   GET /api/v1/payments/:id
+// @access  Private/Admin
+export const getPaymentById = catchAsync(async (req, res) => {
+  const payment = await Payment.findById(req.params.id)
+    .populate({
+      path: "reservation",
+      populate: {
+        path: "itemId",
+        select: "nom titre lieu localisation prix description",
+      },
+    })
+    .lean();
+
+  if (!payment) {
     return res.status(404).json({
       status: "fail",
-      message: "Item non trouvé",
+      message: "Paiement non trouvé",
     });
   }
-
-  // Calculer le montant
-  const montantTotal = item.prix * nombrePlaces;
-  const montantAPayer =
-    planPaiement === "deux_tranches"
-      ? Math.ceil(montantTotal / 2)
-      : montantTotal;
-
-  // Créer la réservation
-  const reservation = await Reservation.create({
-    client,
-    type,
-    itemId,
-    date: req.body.date,
-    nombrePlaces,
-    message: req.body.message,
-    planPaiement,
-    methodePaiement,
-    montantTotal,
-    montantPaye: 0,
-    statutPaiement: "en_attente",
-  });
-
-  // Générer une référence unique
-  const transactionId = `EVT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-  // Données pour Flutterwave
-  const paymentData = {
-    publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
-    tx_ref: transactionId,
-    amount: montantAPayer,
-    currency: "XOF",
-    payment_options: "card, mobilemoney, ussd",
-    customer: {
-      email: client.email,
-      phone_number: client.telephone,
-      name: `${client.prenom} ${client.nom}`,
-    },
-    customizations: {
-      title: "Even Travel",
-      description: `Réservation ${type} - ${item.nom}`,
-      logo: "https://votre-site.com/logo.png",
-    },
-    meta: {
-      reservationId: reservation._id.toString(),
-      type,
-      planPaiement,
-    },
-  };
-
-  // Sauvegarder l'ID de transaction
-  reservation.transactionId = transactionId;
-  await reservation.save();
 
   res.status(200).json({
     status: "success",
     data: {
-      reservation,
-      paymentData,
-      message: "Redirigez l'utilisateur vers Flutterwave",
+      payment,
     },
   });
 });
 
-// Webhook Flutterwave
-export const webhookFlutterwave = catchAsync(async (req, res) => {
-  const secretHash = process.env.FLUTTERWAVE_SECRET_HASH;
-  const signature = req.headers["verif-hash"];
+// @desc    Mettre à jour le statut d'un paiement
+// @route   PATCH /api/v1/payments/:id/status
+// @access  Private/Admin
+export const updatePaymentStatus = catchAsync(async (req, res) => {
+  const { statut } = req.body;
 
-  // Vérifier la signature
-  if (signature !== secretHash) {
-    return res.status(401).send("Unauthorized");
+  const payment = await Payment.findById(req.params.id);
+
+  if (!payment) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Paiement non trouvé",
+    });
   }
 
-  const event = req.body;
+  payment.statut = statut;
+  await payment.save();
 
-  if (event.status === "successful") {
-    const reservationId = event.meta.reservationId;
-
-    const reservation = await Reservation.findById(reservationId);
-    if (reservation && reservation.statutPaiement !== "paye") {
-      const montantPaye = Number(event.amount);
-
-      reservation.montantPaye += montantPaye;
-      reservation.statutPaiement =
-        montantPaye >= reservation.montantTotal ? "paye" : "acompte";
-
-      await reservation.save();
-
-      // Réduire les places pour les événements
-      if (reservation.type === "evenement") {
-        await Event.findByIdAndUpdate(reservation.itemId, {
-          $inc: { placesRestantes: -reservation.nombrePlaces },
-        });
-      }
-
-      // TODO: Envoyer email de confirmation
-      console.log(`Paiement réussi pour réservation ${reservationId}`);
-    }
+  // Si le paiement est marqué comme payé, mettre à jour la réservation
+  if (statut === "paid" && payment.reservation) {
+    await Reservation.findByIdAndUpdate(payment.reservation, {
+      statutPaiement: "paye",
+      montantPaye: payment.montant,
+    });
   }
 
-  res.status(200).send("OK");
+  res.status(200).json({
+    status: "success",
+    data: {
+      payment,
+    },
+  });
 });
 
-// Vérifier statut paiement
-export const verifierPaiement = catchAsync(async (req, res) => {
-  const { transactionId } = req.body;
+// @desc    Supprimer un paiement
+// @route   DELETE /api/v1/payments/:id
+// @access  Private/Admin
+export const deletePayment = catchAsync(async (req, res) => {
+  const payment = await Payment.findById(req.params.id);
 
-  try {
-    // Vérifier auprès de Flutterwave
-    const response = await axios.get(
-      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
-        },
-      },
-    );
-
-    const transaction = response.data.data;
-
-    if (transaction.status === "successful") {
-      // Mettre à jour la réservation
-      const reservation = await Reservation.findOne({ transactionId });
-
-      if (reservation) {
-        reservation.statutPaiement = "paye";
-        reservation.montantPaye = transaction.amount;
-        await reservation.save();
-
-        return res.status(200).json({
-          status: "success",
-          message: "Paiement confirmé",
-        });
-      }
-    }
-
-    res.status(400).json({
+  if (!payment) {
+    return res.status(404).json({
       status: "fail",
-      message: "Paiement non confirmé",
-    });
-  } catch (error) {
-    console.error("Erreur vérification:", error);
-    res.status(500).json({
-      status: "error",
-      message: "Erreur lors de la vérification",
+      message: "Paiement non trouvé",
     });
   }
+
+  await payment.deleteOne();
+
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
+
+// @desc    Récupérer les statistiques des paiements
+// @route   GET /api/v1/payments/stats
+// @access  Private/Admin
+export const getPaymentStats = catchAsync(async (req, res) => {
+  const stats = await Payment.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalPayments: { $sum: 1 },
+        totalAmount: { $sum: "$montant" },
+        pendingAmount: {
+          $sum: { $cond: [{ $eq: ["$statut", "pending"] }, "$montant", 0] },
+        },
+        paidAmount: {
+          $sum: { $cond: [{ $eq: ["$statut", "paid"] }, "$montant", 0] },
+        },
+        cancelledAmount: {
+          $sum: { $cond: [{ $eq: ["$statut", "cancelled"] }, "$montant", 0] },
+        },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      stats: stats[0] || {
+        totalPayments: 0,
+        totalAmount: 0,
+        pendingAmount: 0,
+        paidAmount: 0,
+        cancelledAmount: 0,
+      },
+    },
+  });
 });

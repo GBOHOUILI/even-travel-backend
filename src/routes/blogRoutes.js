@@ -6,7 +6,7 @@ import {
   updateArticle,
   deleteArticle,
   createComment,
-  getArticleComments, // Ajouter cette importation
+  getArticleComments,
   approveComment,
   deleteComment,
   getAllCommentsAdmin,
@@ -24,14 +24,14 @@ router.get("/:slug/comments", getArticleComments); // Nouvelle route publique
 router.post("/:slug/comments", createComment);
 
 // Routes admin
-router.use(protect);
+// router.use(protect);
 
-router.get("/admin/articles", getAllArticlesAdmin);
-router.post("/", upload.array("images", 6), createArticle);
-router.patch("/:id", upload.array("images", 6), updateArticle);
-router.delete("/:id", deleteArticle);
-router.patch("/comments/:commentId/approve", approveComment);
-router.delete("/comments/:commentId", deleteComment);
-router.get("/admin/comments", getAllCommentsAdmin);
+// router.get("/admin/articles", getAllArticlesAdmin);
+// router.post("/", upload.array("images", 6), createArticle);
+// router.patch("/:id", upload.array("images", 6), updateArticle);
+// router.delete("/:id", deleteArticle);
+// router.patch("/comments/:commentId/approve", approveComment);
+// router.delete("/comments/:commentId", deleteComment);
+// router.get("/admin/comments", getAllCommentsAdmin);
 
 export default router;

@@ -358,19 +358,13 @@ export const initPayment = catchAsync(async (req, res) => {
   // Selon la méthode de paiement choisie
   switch (methodePaiement) {
     case "carte":
-      paymentUrl = `https://api.sandbox.paypal.com/v2/checkout/orders?reservation=${reservationId}`;
-      break;
     case "paypal":
-      paymentUrl = `https://www.paypal.com/pay?reservation=${reservationId}`;
-      break;
     case "mtn":
-      paymentUrl = `https://momodeveloper.mtn.com/collection/v1_0/requesttopay?reservation=${reservationId}`;
-      break;
     case "moov":
-      paymentUrl = `https://api.moov-africa.com/payment?reservation=${reservationId}`;
-      break;
     default:
+      // Pour tous les types, rediriger vers votre page de paiement interne
       paymentUrl = `/paiement.html?id=${reservationId}`;
+      break;
   }
 
   // Mettre à jour la réservation avec l'URL de paiement

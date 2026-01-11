@@ -9,6 +9,7 @@ import destinationRoutes from "./routes/destinationRoutes.js";
 import enventRoutes from "./routes/eventRoutes.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 const app = express();
 
@@ -48,6 +49,9 @@ app.use("/api/v1/blog", blogRoutes);
 
 //Routes pour les réservations
 app.use("/api/v1/reservations", reservationRoutes);
+
+//Routes pour les payments
+app.use("/api/v1/payments", paymentRoutes);
 
 //Routes de l'admin
 import adminRoutes from "./routes/adminRoutes.js";
