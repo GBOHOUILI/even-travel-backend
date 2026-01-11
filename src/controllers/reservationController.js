@@ -160,3 +160,237 @@ export const getReservationStats = catchAsync(async (req, res) => {
     },
   });
 });
+
+// @desc    Créer une nouvelle réservation
+// @route   POST /api/v1/reservations
+// @access  Public
+export const createReservation = catchAsync(async (req, res) => {
+  const {
+    client,
+    type,
+    itemId,
+    date,
+    nombrePlaces,
+    message,
+    tranche = "unique",
+    methodePaiement,
+  } = req.body;
+
+  // Vérifier si l'élément (event ou destination) existe
+  let item;
+  let prixUnitaire;
+
+  if (type === "event") {
+    item = await Event.findById(itemId);
+    if (!item) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Événement non trouvé",
+      });
+    }
+    prixUnitaire = item.prix || 0;
+
+    // Vérifier les places disponibles
+    if (
+      item.placesRestantes !== undefined &&
+      item.placesRestantes < nombrePlaces
+    ) {
+      return res.status(400).json({
+        status: "fail",
+        message: `Il ne reste que ${item.placesRestantes} places disponibles`,
+      });
+    }
+  } else if (type === "destination") {
+    item = await Destination.findById(itemId);
+    if (!item) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Destination non trouvée",
+      });
+    }
+    prixUnitaire = item.prix || 0;
+
+    // Vérifier les places disponibles pour les destinations
+    if (
+      item.placesDisponibles !== undefined &&
+      item.placesDisponibles < nombrePlaces
+    ) {
+      return res.status(400).json({
+        status: "fail",
+        message: `Il ne reste que ${item.placesDisponibles} places disponibles`,
+      });
+    }
+  } else {
+    return res.status(400).json({
+      status: "fail",
+      message: "Type de réservation invalide",
+    });
+  }
+
+  // Calculer le montant total
+  const montantTotal = prixUnitaire * nombrePlaces;
+
+  // Calculer le montant à payer selon le type de tranche
+  let montantPaye = 0;
+  if (tranche === "deux") {
+    montantPaye = Math.ceil(montantTotal / 2);
+  } else {
+    montantPaye = montantTotal;
+  }
+
+  // Créer la réservation
+  const reservation = await Reservation.create({
+    client: {
+      nom: client.nom,
+      prenom: client.prenom,
+      email: client.email,
+      telephone: client.telephone,
+    },
+    type,
+    itemId,
+    date: new Date(date),
+    nombrePlaces,
+    message,
+    tranche,
+    montantTotal,
+    montantPaye,
+    statutPaiement: "en_attente", // Statut initial
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: {
+      reservation,
+    },
+    message: "Réservation créée avec succès",
+  });
+});
+
+// @desc    Initier un paiement pour une réservation
+// @route   POST /api/v1/reservations/initier
+// @access  Public
+export const initPayment = catchAsync(async (req, res) => {
+  const {
+    client,
+    type,
+    itemId,
+    date,
+    nombrePlaces,
+    message,
+    planPaiement,
+    methodePaiement,
+  } = req.body;
+
+  // Vérifier les données requises
+  if (!client || !type || !itemId || !date || !nombrePlaces) {
+    return res.status(400).json({
+      status: "fail",
+      message: "Données de réservation incomplètes",
+    });
+  }
+
+  // Calculer le prix unitaire
+  let prixUnitaire = 0;
+  let itemName = "";
+  let itemLocation = "";
+
+  if (type === "event") {
+    const event = await Event.findById(itemId);
+    if (!event) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Événement non trouvé",
+      });
+    }
+    prixUnitaire = event.prix || 0;
+    itemName = event.nom;
+    itemLocation = event.lieu;
+  } else if (type === "destination") {
+    const destination = await Destination.findById(itemId);
+    if (!destination) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Destination non trouvée",
+      });
+    }
+    prixUnitaire = destination.prix || 0;
+    itemName = destination.titre;
+    itemLocation = destination.localisation;
+  }
+
+  // Calculer les montants
+  const montantTotal = prixUnitaire * nombrePlaces;
+
+  // Déterminer la tranche
+  const tranche = planPaiement === "deux_tranches" ? "deux" : "unique";
+
+  // Calculer le montant à payer maintenant
+  let montantPaye = 0;
+  if (tranche === "deux") {
+    montantPaye = Math.ceil(montantTotal / 2);
+  } else {
+    montantPaye = montantTotal;
+  }
+
+  // Créer la réservation temporaire
+  const reservation = await Reservation.create({
+    client: {
+      nom: client.nom,
+      prenom: client.prenom,
+      email: client.email,
+      telephone: client.telephone,
+    },
+    type,
+    itemId,
+    date: new Date(date),
+    nombrePlaces,
+    message,
+    tranche,
+    montantTotal,
+    montantPaye,
+    statutPaiement: "en_attente",
+  });
+
+  // Générer l'URL de paiement (simulation)
+  let paymentUrl = "";
+  const reservationId = reservation._id.toString();
+
+  // Selon la méthode de paiement choisie
+  switch (methodePaiement) {
+    case "carte":
+      paymentUrl = `https://api.sandbox.paypal.com/v2/checkout/orders?reservation=${reservationId}`;
+      break;
+    case "paypal":
+      paymentUrl = `https://www.paypal.com/pay?reservation=${reservationId}`;
+      break;
+    case "mtn":
+      paymentUrl = `https://momodeveloper.mtn.com/collection/v1_0/requesttopay?reservation=${reservationId}`;
+      break;
+    case "moov":
+      paymentUrl = `https://api.moov-africa.com/payment?reservation=${reservationId}`;
+      break;
+    default:
+      paymentUrl = `/paiement.html?id=${reservationId}`;
+  }
+
+  // Mettre à jour la réservation avec l'URL de paiement
+  reservation.paymentUrl = paymentUrl;
+  await reservation.save();
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      reservation: {
+        _id: reservation._id,
+        montantTotal,
+        montantPaye,
+        paymentUrl,
+        itemName,
+        itemLocation,
+        date: reservation.date,
+        nombrePlaces,
+      },
+    },
+    message: "Paiement initialisé avec succès",
+  });
+});

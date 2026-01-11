@@ -5,13 +5,19 @@ import {
   updateReservationStatus,
   deleteReservation,
   getReservationStats,
+  createReservation, // Nouvelle fonction
+  initPayment, // Nouvelle fonction
 } from "../controllers/reservationController.js";
 
 import { protect } from "../middlewares/protect.js";
 
 const router = express.Router();
 
-// Protéger toutes les routes
+// Route publique pour créer une réservation (pas besoin de protection)
+router.post("/", createReservation);
+router.post("/initier", initPayment);
+
+// Protéger les routes suivantes (pour admin uniquement)
 router.use(protect);
 
 router.get("/", getAllReservations);
