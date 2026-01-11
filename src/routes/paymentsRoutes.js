@@ -6,7 +6,7 @@ import {
   updatePaymentStatus,
   deletePayment,
   getPaymentStats,
-} from "../controllers/paymentsController.js";
+} from "../controllers/paiementController.js";
 
 const router = express.Router();
 

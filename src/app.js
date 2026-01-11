@@ -9,7 +9,7 @@ import destinationRoutes from "./routes/destinationRoutes.js";
 import enventRoutes from "./routes/eventRoutes.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
+import paymentRoutes from "./routes/paymentsRoutes.js";
 
 const app = express();
 
