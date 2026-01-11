@@ -7,16 +7,36 @@ import catchAsync from "../utils/catchAsync.js";
 // @route   GET /api/v1/reservations
 // @access  Private/Admin
 export const getAllReservations = catchAsync(async (req, res) => {
-  const reservations = await Reservation.find()
-    .sort({ createdAt: -1 })
-    .populate("itemId", "nom titre lieu localisation prix")
-    .lean();
+  // Option 1: Sans populate (simple et fonctionnel)
+  const reservations = await Reservation.find().sort({ createdAt: -1 }).lean();
+
+  // Option 2: Récupérer les détails séparément
+  const populatedReservations = [];
+
+  for (const reservation of reservations) {
+    let itemDetails = null;
+
+    if (reservation.type === "event") {
+      itemDetails = await Event.findById(reservation.itemId)
+        .select("nom lieu prix")
+        .lean();
+    } else if (reservation.type === "destination") {
+      itemDetails = await Destination.findById(reservation.itemId)
+        .select("titre localisation prix")
+        .lean();
+    }
+
+    populatedReservations.push({
+      ...reservation,
+      itemDetails,
+    });
+  }
 
   res.status(200).json({
     status: "success",
-    results: reservations.length,
+    results: populatedReservations.length,
     data: {
-      reservations,
+      reservations: populatedReservations,
     },
   });
 });

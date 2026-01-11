@@ -16,20 +16,22 @@ const reservationSchema = new mongoose.Schema(
     itemId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      refPath: "type",
+      refPath: "typeModel", // Changé ici
+    },
+    typeModel: {
+      // Ajout de ce champ
+      type: String,
+      enum: ["Event", "Destination"], // Avec majuscules
+      required: true,
     },
     date: { type: Date, required: true },
     nombrePlaces: { type: Number, required: true, min: 1 },
     message: String,
-
-    // Informations de paiement
     tranche: {
       type: String,
       enum: ["unique", "deux"],
       default: "unique",
     },
-
-    // Statuts
     montantTotal: { type: Number, required: true },
     montantPaye: { type: Number, default: 0 },
     statutPaiement: {
@@ -37,8 +39,6 @@ const reservationSchema = new mongoose.Schema(
       enum: ["en_attente", "acompte", "paye", "annule"],
       default: "en_attente",
     },
-
-    // Informations transaction
     transactionId: String,
     paymentUrl: String,
   },
@@ -47,10 +47,10 @@ const reservationSchema = new mongoose.Schema(
   },
 );
 
-// Référence dynamique
+// Mettez à jour le virtual
 reservationSchema.virtual("item", {
   ref: function () {
-    return this.type === "event" ? "Event" : "Destination";
+    return this.typeModel; // Utilisez typeModel au lieu de type
   },
   localField: "itemId",
   foreignField: "_id",
