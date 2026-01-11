@@ -21,7 +21,6 @@ router.get("/logout", logout);
 
 // Admin connecté
 router.get("/me", protect, getMe);
-router.get("/me", protectAdmin, getMe);
 router.patch("/update-me", protect, updateMe);
 router.patch("/update-password", protect, updatePassword);
 
