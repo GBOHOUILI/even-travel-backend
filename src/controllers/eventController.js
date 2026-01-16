@@ -7,6 +7,8 @@ import {
 
 // CREATE
 export const createEvent = catchAsync(async (req, res) => {
+  const data = req.body.data ? JSON.parse(req.body.data) : req.body;
+
   const {
     nom,
     date,
@@ -29,31 +31,44 @@ export const createEvent = catchAsync(async (req, res) => {
     itineraire,
     momentsForts,
     recommandations,
-  } = req.body;
+  } = data;
 
   const images = [];
 
-  if (req.files && req.files.length > 0) {
-    for (const file of req.files) {
-      const result = await uploadToCloudinary(file, "even-travel/events");
-      images.push({
-        url: result.url,
-        public_id: result.public_id,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
+  if (req.file) {
+    const result = await uploadToCloudinary(req.file, "even-travel/events");
+    images.push({
+      url: result.url,
+      public_id: result.public_id,
+    });
   }
 
   // Gérer les tableaux
-  const languesArray = langues ? (Array.isArray(langues) ? langues : [langues]) : ["Français"];
-  const servicesInclusArray = servicesInclus ? 
-    (Array.isArray(servicesInclus) ? servicesInclus : JSON.parse(servicesInclus || "[]")) : [];
-  const servicesNonInclusArray = servicesNonInclus ? 
-    (Array.isArray(servicesNonInclus) ? servicesNonInclus : JSON.parse(servicesNonInclus || "[]")) : [];
-  const momentsFortsArray = momentsForts ? 
-    (Array.isArray(momentsForts) ? momentsForts : JSON.parse(momentsForts || "[]")) : [];
-  const itineraireArray = itineraire ? 
-    (Array.isArray(itineraire) ? itineraire : JSON.parse(itineraire || "[]")) : [];
+  const languesArray = langues
+    ? Array.isArray(langues)
+      ? langues
+      : [langues]
+    : ["Français"];
+  const servicesInclusArray = servicesInclus
+    ? Array.isArray(servicesInclus)
+      ? servicesInclus
+      : JSON.parse(servicesInclus || "[]")
+    : [];
+  const servicesNonInclusArray = servicesNonInclus
+    ? Array.isArray(servicesNonInclus)
+      ? servicesNonInclus
+      : JSON.parse(servicesNonInclus || "[]")
+    : [];
+  const momentsFortsArray = momentsForts
+    ? Array.isArray(momentsForts)
+      ? momentsForts
+      : JSON.parse(momentsForts || "[]")
+    : [];
+  const itineraireArray = itineraire
+    ? Array.isArray(itineraire)
+      ? itineraire
+      : JSON.parse(itineraire || "[]")
+    : [];
 
   const event = await Event.create({
     nom,
@@ -128,44 +143,45 @@ export const getEvent = catchAsync(async (req, res) => {
 
 // UPDATE
 export const updateEvent = catchAsync(async (req, res) => {
-  const updates = { ...req.body };
+  const updates = req.body.data ? JSON.parse(req.body.data) : req.body;
 
   // Gérer les tableaux
   if (updates.langues && !Array.isArray(updates.langues)) {
     updates.langues = [updates.langues];
   }
-  if (updates.servicesInclus && typeof updates.servicesInclus === 'string') {
+  if (updates.servicesInclus && typeof updates.servicesInclus === "string") {
     updates.servicesInclus = JSON.parse(updates.servicesInclus);
   }
-  if (updates.servicesNonInclus && typeof updates.servicesNonInclus === 'string') {
+  if (
+    updates.servicesNonInclus &&
+    typeof updates.servicesNonInclus === "string"
+  ) {
     updates.servicesNonInclus = JSON.parse(updates.servicesNonInclus);
   }
-  if (updates.itineraire && typeof updates.itineraire === 'string') {
+  if (updates.itineraire && typeof updates.itineraire === "string") {
     updates.itineraire = JSON.parse(updates.itineraire);
   }
-  if (updates.momentsForts && typeof updates.momentsForts === 'string') {
+  if (updates.momentsForts && typeof updates.momentsForts === "string") {
     updates.momentsForts = JSON.parse(updates.momentsForts);
   }
 
   // Gérer les images
-  if (req.files && req.files.length > 0) {
+  if (req.file) {
     const oldEvent = await Event.findById(req.params.id);
-    if (oldEvent && oldEvent.images.length > 0) {
+
+    if (oldEvent?.images?.length) {
       for (const img of oldEvent.images) {
         await deleteFromCloudinary(img.public_id);
       }
     }
 
-    const images = [];
-    for (const file of req.files) {
-      const result = await uploadToCloudinary(file, "even-travel/events");
-      images.push({
+    const result = await uploadToCloudinary(req.file, "even-travel/events");
+    updates.images = [
+      {
         url: result.url,
         public_id: result.public_id,
-      });
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
-    updates.images = images;
+      },
+    ];
   }
 
   const event = await Event.findByIdAndUpdate(req.params.id, updates, {
@@ -211,19 +227,19 @@ export const deleteEvent = catchAsync(async (req, res) => {
 // Mettre à jour les places restantes après une réservation
 export const updatePlaces = catchAsync(async (req, res) => {
   const { places } = req.body;
-  
+
   const event = await Event.findById(req.params.id);
   if (!event) {
-    return res.status(404).json({ 
-      status: "fail", 
-      message: "Événement non trouvé" 
+    return res.status(404).json({
+      status: "fail",
+      message: "Événement non trouvé",
     });
   }
 
   if (places > event.placesRestantes) {
     return res.status(400).json({
       status: "fail",
-      message: `Il ne reste que ${event.placesRestantes} places disponibles`
+      message: `Il ne reste que ${event.placesRestantes} places disponibles`,
     });
   }
 

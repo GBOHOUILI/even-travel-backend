@@ -19,6 +19,11 @@ const articleSchema = mongoose.Schema(
       required: true,
       default: "Admin Even Travel",
     },
+    categorie: {
+      type: String,
+      required: [true, "La catégorie est obligatoire"],
+      trim: true,
+    },
     images: [
       {
         url: { type: String, required: true },

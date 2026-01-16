@@ -8,7 +8,7 @@ import {
 
 // CREATE ARTICLE
 export const createArticle = catchAsync(async (req, res) => {
-  const { titre, contenu, auteur, published } = req.body;
+  const { titre, contenu, auteur, published, categorie } = req.body;
 
   const images = [];
   if (req.files && req.files.length > 0) {
@@ -31,8 +31,9 @@ export const createArticle = catchAsync(async (req, res) => {
     titre,
     contenu,
     auteur,
+    categorie,
     images,
-    published: isPublished, // Utilisez la variable convertie
+    published: isPublished,
   });
 
   res.status(201).json({
@@ -64,6 +65,23 @@ export const getAllArticlesAdmin = catchAsync(async (req, res) => {
     status: "success",
     results: articles.length,
     data: { articles },
+  });
+});
+
+// ADMIN : GET ARTICLE BY ID
+export const getArticleAdmin = catchAsync(async (req, res) => {
+  const article = await Article.findById(req.params.id);
+
+  if (!article) {
+    return res.status(404).json({
+      status: "fail",
+      message: "Article non trouvé",
+    });
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: { article },
   });
 });
 

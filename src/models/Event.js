@@ -1,4 +1,3 @@
-// src/models/Event.js
 import mongoose from "mongoose";
 
 const eventSchema = mongoose.Schema(
@@ -71,7 +70,16 @@ const eventSchema = mongoose.Schema(
     ],
     categorie: {
       type: String,
-      enum: ["concert", "excursion", "formation", "soiree", "culture", "festival", "sport", "autre"],
+      enum: [
+        "concert",
+        "excursion",
+        "formation",
+        "soiree",
+        "culture",
+        "festival",
+        "sport",
+        "autre",
+      ],
       default: "autre",
     },
     featured: {
@@ -112,39 +120,28 @@ const eventSchema = mongoose.Schema(
 );
 
 // Initialiser placesRestantes = placesTotales à la création
-eventSchema.pre("save", function (next) {
-  if (this.isNew) {
-    this.placesRestantes = this.placesTotales;
-    
-    // Si dateFin n'est pas fournie, la définir automatiquement
-    if (!this.dateFin && this.duree > 1) {
-      const dateFin = new Date(this.date);
-      dateFin.setDate(dateFin.getDate() + this.duree - 1);
-      this.dateFin = dateFin;
-    } else if (!this.dateFin) {
-      this.dateFin = this.date;
-    }
-    
-    // Calculer la durée si dateFin est fournie
-    if (this.dateFin && !this.duree) {
-      const diffTime = Math.abs(new Date(this.dateFin) - new Date(this.date));
-      this.duree = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    }
-  }
-  next();
-});
-
-// Middleware pour calculer la durée avant la mise à jour
-eventSchema.pre("findOneAndUpdate", function (next) {
+eventSchema.pre("findOneAndUpdate", function () {
   const update = this.getUpdate();
-  
+
   if (update.dateFin && update.date) {
     const dateFin = new Date(update.dateFin);
     const date = new Date(update.date);
     const diffTime = Math.abs(dateFin - date);
     update.duree = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   }
-  
+});
+
+// Middleware pour calculer la durée avant la mise à jour
+eventSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+
+  if (update.dateFin && update.date) {
+    const dateFin = new Date(update.dateFin);
+    const date = new Date(update.date);
+    const diffTime = Math.abs(dateFin - date);
+    update.duree = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }
+
   next();
 });
 

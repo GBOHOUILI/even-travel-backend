@@ -9,6 +9,7 @@ import {
   deleteComment,
   getAllCommentsAdmin,
   getAllArticlesAdmin,
+  getArticleAdmin,
 } from "../controllers/blogController.js";
 
 const router = express.Router();
@@ -18,6 +19,7 @@ router.use(protect);
 
 // Routes admin pour les articles
 router.get("/articles", getAllArticlesAdmin);
+router.get("/articles/:id", getArticleAdmin);
 router.post("/articles", upload.array("images", 6), createArticle);
 router.patch("/articles/:id", upload.array("images", 6), updateArticle);
 router.delete("/articles/:id", deleteArticle);

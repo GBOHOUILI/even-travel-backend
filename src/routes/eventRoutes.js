@@ -19,8 +19,8 @@ router.get("/:id", getEvent);
 // Routes admin (protégées)
 router.use(protect);
 
-router.post("/", upload.array("images", 6), createEvent);
-router.patch("/:id", upload.array("images", 6), updateEvent);
+router.post("/", upload.single("image"), createEvent);
+router.patch("/:id", upload.single("image"), updateEvent);
 router.delete("/:id", deleteEvent);
 
 // Route spéciale pour mettre à jour les places
